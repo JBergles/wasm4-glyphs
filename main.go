@@ -5,6 +5,10 @@ import (
 	"math/rand"
 )
 
+var randSeed int64 = 0
+var frameCount int64 = 0
+var gamepadBounce uint8 = 0
+
 func writeChar() {
 	var buf [1]byte
 	op := rand.Intn(100)
@@ -29,18 +33,23 @@ func writeChar() {
 //go:export start
 func start() {
 	*w4.SYSTEM_FLAGS = w4.SYSTEM_PRESERVE_FRAMEBUFFER
-	rand.Seed(int64(*w4.MOUSE_X) * int64(*w4.MOUSE_Y))
+	randSeed = int64(*w4.MOUSE_X) * int64(*w4.MOUSE_Y)
+	rand.Seed(randSeed)
 }
 
 //go:export update
 func update() {
+	frameCount += 1
 	gamepad := *w4.GAMEPAD1
-	if gamepad&w4.BUTTON_1 != 0 {
+	if gamepadBounce != gamepad && gamepad&w4.BUTTON_1 != 0 {
+		//Reseed RNG with frame count
+		randSeed = randSeed ^ frameCount
+		rand.Seed(randSeed)
 		//Clear the screen by filling with background color
 		*w4.DRAW_COLORS = 0x11
 		w4.Rect(0, 0, 160, 160)
 	}
-	if gamepad&w4.BUTTON_2 != 0 {
+	if gamepadBounce != gamepad && gamepad&w4.BUTTON_2 != 0 {
 		//Randomize color palette
 		w4.PALETTE[0] = rand.Uint32()
 		w4.PALETTE[1] = rand.Uint32()
@@ -50,4 +59,5 @@ func update() {
 	for i := 0; i < 2; i++ {
 		writeChar()
 	}
+	gamepadBounce = gamepad
 }
